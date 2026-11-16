@@ -1,16 +1,35 @@
-// Entry for make.fun ai-excited-01: "The Moon Came Down for a Swim".
-//
-// The image (entry.png beside this file) is the whole entry: a giant full
-// moon that crashed half-submerged into a small backyard swimming pool at
-// night. This program copies it to the grader's output directory, so the
-// judge sees exactly those bytes.
-//
-// Run by the grader twice; both runs write the same bytes.
-// Outside the grader, MAKEFUN_OUTPUT_DIR stands in for /output:
-//   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { copyFileSync } from 'node:fs';
-import { join } from 'node:path';
+const here = dirname(fileURLToPath(import.meta.url));
+const source = join(here, "entry.png");
 
-const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
-copyFileSync(new URL('./entry.png', import.meta.url), join(outputDir, 'entry.png'));
+const outDir = process.env.MAKEFUN_OUTPUT_DIR
+  ? resolve(process.env.MAKEFUN_OUTPUT_DIR)
+  : "/output";
+const destination = join(outDir, "entry.png");
+
+mkdirSync(outDir, { recursive: true });
+copyFileSync(source, destination);
+
+// Verify the copy: read the output back and compare it with the source
+// asset by byte length and content digest, failing loudly if they differ.
+const sourceBytes = readFileSync(source);
+const outputBytes = readFileSync(destination);
+const sourceDigest = createHash("sha256").update(sourceBytes).digest("hex");
+const outputDigest = createHash("sha256").update(outputBytes).digest("hex");
+if (outputBytes.length !== sourceBytes.length) {
+  throw new Error(
+    `output size ${outputBytes.length} does not match source size ${sourceBytes.length}`,
+  );
+}
+if (outputDigest !== sourceDigest) {
+  throw new Error(
+    `output sha256 ${outputDigest} does not match source sha256 ${sourceDigest}`,
+  );
+}
+
+const written = outputDigest;
+console.log(`wrote ${destination} sha256=${written}`);
